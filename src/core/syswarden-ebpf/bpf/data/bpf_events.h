@@ -29,11 +29,11 @@ typedef struct event_hdr {
 /**
  * Simple macro for fast event hdr creation.
  */
-#define SET_EVENT_HDR(_type, _size, _timestamp) \
+#define SET_EVENT_HDR(_type, _size, _ts_ns)     \
 ((event_hdr) {                                  \
     .type       = (_type),                      \
     .size       = (_size),                      \
-    .timestamp  = (_timestamp)                  \
+    .ts_ns      = (_ts_ns)                      \
 })
 
 //--------------------------------
