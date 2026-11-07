@@ -1,0 +1,61 @@
+#ifndef BPF_EVENTS_H
+#define BPF_EVENTS_H
+
+#include "../includes/bpf_config.h"
+#include "../includes/bpf_common.h"
+
+/**
+ * Global event types.
+ */
+#define EVENT_CONN_OPEN  1
+#define EVENT_CONN_CLOSE 2
+
+//-------------------------------
+
+/**
+ * Global event packet hdr. Contains usefull infos about event sendt.
+ */
+typedef struct event_hdr {
+    __u16 schema_version;   // 1
+    __u16 type;             // CONN_OPEN, CONN_CLOSE, LSM_CONNECT, ...
+    __u16 size;             
+    __u64 ts_ns;            // bpf_ktime_get_ns
+    
+    __u32 pid, tgid, uid;
+    __u8  comm[16];
+    __u8  _pad[3];
+} event_hdr;
+
+/**
+ * Simple macro for fast event hdr creation.
+ */
+#define SET_EVENT_HDR(_type, _size, _ts_ns)     \
+((event_hdr) {                                  \
+    .type       = (_type),                      \
+    .size       = (_size),                      \
+    .ts_ns      = (_ts_ns)                      \
+})
+
+//--------------------------------
+
+typedef struct conn_event {
+    __u64 sock_key;
+    __u16 family, proto, sport, dport;
+    __u8  saddr[16], daddr[16];
+    __u8  old_state, new_state, direction; // ACTIVE | PASSIVE
+    __u8  _pad[1];
+} conn_event;
+
+/**
+ * Main payload send on the ringbuffer.
+ */
+typedef struct ebpf_event {
+    struct event_hdr hdr;
+
+    union {
+        conn_event conn_event;
+    } payload;
+
+} ebpf_event;
+
+#endif
