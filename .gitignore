@@ -49,5 +49,9 @@ act.secrets
 Thumbs.db
 null
 
+# build directories for syswarden-ebpf project
+build/
+
 # Private local agent instructions
 /AGENTS.md
+
