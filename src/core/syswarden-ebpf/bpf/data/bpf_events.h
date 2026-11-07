@@ -7,8 +7,8 @@
 /**
  * Global event types.
  */
-#define EVENT_CONNECTION_OPEN  1
-#define EVENT_CONNECTION_CLOSE 2
+#define EVENT_CONN_OPEN  1
+#define EVENT_CONN_CLOSE 2
 
 //-------------------------------
 
@@ -16,16 +16,21 @@
  * Global event packet hdr. Contains usefull infos about event sendt.
  */
 typedef struct event_hdr {
-    __u16 type;
-    __u16 size;
-    __u64 timestamp;
-} __attribute__((packed)) event_hdr;
+    __u16 schema_version;   // 1
+    __u16 type;             // CONN_OPEN, CONN_CLOSE, LSM_CONNECT, ...
+    __u16 size;             
+    __u64 ts_ns;            // bpf_ktime_get_ns
+    
+    __u32 pid, tgid, uid;
+    __u8  comm[16];
+    __u8  _pad[3];
+} event_hdr;
 
 /**
  * Simple macro for fast event hdr creation.
  */
 #define SET_EVENT_HDR(_type, _size, _timestamp) \
-((event_hdr) {                             \
+((event_hdr) {                                  \
     .type       = (_type),                      \
     .size       = (_size),                      \
     .timestamp  = (_timestamp)                  \
@@ -33,20 +38,13 @@ typedef struct event_hdr {
 
 //--------------------------------
 
-typedef struct event_payload_conn_open {
-    __u16 port;
-    __u32 ipv4_addr;
-    char protocol[DNAME_PROTOCOL_SIZE];
-
-    //ipv6 ?
-} __attribute__((packed)) event_payload_conn_open;
-
-typedef struct event_payload_conn_close {
-    __u16 port;
-    __u32 ipv4_addr;
-
-    //ipv6 ?
-} __attribute__((packed)) event_payload_conn_close;
+typedef struct conn_event {
+    __u64 sock_key;
+    __u16 family, proto, sport, dport;
+    __u8  saddr[16], daddr[16];
+    __u8  old_state, new_state, direction; // ACTIVE | PASSIVE
+    __u8  _pad[1];
+} conn_event;
 
 /**
  * Main payload send on the ringbuffer.
@@ -55,10 +53,9 @@ typedef struct ebpf_event {
     struct event_hdr hdr;
 
     union {
-        event_payload_conn_close conn_close;
-        event_payload_conn_open  conn_open;
+        conn_event conn_event;
     } payload;
 
-} __attribute__((packed)) ebpf_event;
+} ebpf_event;
 
 #endif
