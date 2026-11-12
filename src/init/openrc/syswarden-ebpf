@@ -1,0 +1,17 @@
+#!/sbin/openrc-run
+
+name="syswarden-ebpf"
+description="SYSWARDEN eBPF Connection Observer (observation only)"
+command="/opt/syswarden/bin/syswarden-ebpf"
+command_args="run"
+command_background=true
+pidfile="/run/syswarden-ebpf.pid"
+# SIGTERM detaches, then flushes the ringbuf and the queue before exit.
+retry="TERM/20/KILL/5"
+# BPF memory is charged to RLIMIT_MEMLOCK before kernel 5.11.
+rc_ulimit="-l unlimited"
+
+depend() {
+	need localmount
+	after net syswarden-core
+}
