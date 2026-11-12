@@ -1,0 +1,1 @@
+{"schema_version":1,"type":"lsm_bind","timestamp":"2026-11-12T18:30:00.123456789Z","mono_ns":123456789,"pid":4242,"tgid":4240,"uid":1000,"comm":"nc","attribution":"reliable","sock_key":"0xffff888087654321","family":"ipv6","proto":"udp","sock_type":"dgram","src":"::","sport":0}
