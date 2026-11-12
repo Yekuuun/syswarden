@@ -56,7 +56,7 @@ func header(typ Type, attr Attribution, comm string) []byte {
 	return b
 }
 
-func connV4Record(typ Type, oldState, newState, dir uint8) []byte {
+func connV4Record(typ Type, oldState, newState uint8, dir Direction) []byte {
 	b := header(typ, AttributionUnreliable, "curl")
 	ne.PutUint64(b[offConnKey:], 0xffff888012345678)
 	ne.PutUint16(b[offConnFamily:], familyINET)
@@ -67,7 +67,7 @@ func connV4Record(typ Type, oldState, newState, dir uint8) []byte {
 	copy(b[offConnDAddr:], []byte{93, 184, 216, 34})
 	b[offConnOld] = oldState
 	b[offConnNew] = newState
-	b[offConnDir] = dir
+	b[offConnDir] = uint8(dir)
 	return b
 }
 
@@ -104,7 +104,7 @@ func TestLayoutMatchesC(t *testing.T) {
 }
 
 func TestDecodeConn(t *testing.T) {
-	ev, err := Decode(connV4Record(TypeConnOpen, 2, 1, 0))
+	ev, err := Decode(connV4Record(TypeConnOpen, 2, 1, DirActive))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -118,7 +118,7 @@ func TestDecodeConn(t *testing.T) {
 	if c.SockKey != 0xffff888012345678 || c.Family != familyINET || c.Proto != 6 || c.SPort != 51000 || c.DPort != 443 {
 		t.Fatalf("conn mismatch: %+v", c)
 	}
-	if c.SAddr[0] != 192 || c.DAddr[3] != 34 || c.OldState != 2 || c.NewState != 1 || c.Direction != 0 {
+	if c.SAddr[0] != 192 || c.DAddr[3] != 34 || c.OldState != 2 || c.NewState != 1 || c.Direction != DirActive {
 		t.Fatalf("conn addr/state mismatch: %+v", c)
 	}
 }
@@ -138,7 +138,7 @@ func TestDecodeSock(t *testing.T) {
 }
 
 func TestDecodeRejects(t *testing.T) {
-	good := connV4Record(TypeConnOpen, 2, 1, 0)
+	good := connV4Record(TypeConnOpen, 2, 1, DirActive)
 	mutate := func(f func(b []byte)) []byte {
 		b := append([]byte(nil), good...)
 		f(b)

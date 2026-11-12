@@ -36,6 +36,16 @@ const (
 	AttributionUnreliable Attribution = 2
 )
 
+// Direction of a conn event (DIR_* in C). Only known on the handshake
+// transitions: a close from ESTABLISHED or FIN_WAIT is DirUnknown.
+type Direction uint8
+
+const (
+	DirUnknown Direction = 0
+	DirActive  Direction = 1
+	DirPassive Direction = 2
+)
+
 // Address families, AF_INET_ / AF_INET6_ in C.
 const (
 	familyINET  = 2
@@ -74,7 +84,7 @@ type Conn struct {
 	DAddr     [16]byte
 	OldState  uint8
 	NewState  uint8
-	Direction uint8 // 0 active, 1 passive, only meaningful on open
+	Direction Direction
 	_         [5]byte
 }
 

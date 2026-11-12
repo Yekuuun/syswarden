@@ -131,7 +131,7 @@ func field(t *testing.T, line map[string]any, want map[string]any) {
 	}
 }
 
-var out443 = conn{key: 1, local: "192.168.1.10", remote: "93.184.216.34", lport: 51000, rport: 443, old: 2, dir: 0}
+var out443 = conn{key: 1, local: "192.168.1.10", remote: "93.184.216.34", lport: 51000, rport: 443, old: 2, dir: uint8(event.DirActive)}
 
 func TestOutboundTakesProcessFromConnect(t *testing.T) {
 	h := newHarness(t)
@@ -164,7 +164,7 @@ func TestInboundTakesProcessFromBind(t *testing.T) {
 	h.feed(0, sockRec(event.TypeLSMBind, "nginx", 10, 50, protoTCP, 443, 0, ""))
 	field(t, h.expect(1)[0], map[string]any{"type": "lsm_bind", "comm": "nginx", "sport": 443.0})
 
-	in := conn{key: 2, local: "192.168.1.10", remote: "203.0.113.7", lport: 443, rport: 40000, old: 3, dir: 1}
+	in := conn{key: 2, local: "192.168.1.10", remote: "203.0.113.7", lport: 443, rport: 40000, old: 3, dir: uint8(event.DirPassive)}
 	h.feed(time.Second, connRec(event.TypeConnOpen, "swapper/1", in))
 	field(t, h.expect(1)[0], map[string]any{"direction": "inbound", "comm": "nginx", "attribution": "reliable",
 		"local_port": 443.0, "remote": "203.0.113.7"})
@@ -206,7 +206,7 @@ func TestRepeatsFoldIntoOneLinePerWindow(t *testing.T) {
 func TestUnreliableCommDoesNotSplitKeys(t *testing.T) {
 	h := newHarness(t)
 	for i, comm := range []string{"swapper/0", "kworker/1", "sshd"} {
-		in := conn{key: uint64(i), local: "192.168.1.10", remote: "203.0.113.7", lport: 22, rport: uint16(40000 + i), old: 3, dir: 1}
+		in := conn{key: uint64(i), local: "192.168.1.10", remote: "203.0.113.7", lport: 22, rport: uint16(40000 + i), old: 3, dir: uint8(event.DirPassive)}
 		h.feed(0, connRec(event.TypeConnOpen, comm, in))
 	}
 	h.expect(1)
@@ -224,7 +224,7 @@ func TestIgnoreRules(t *testing.T) {
 	h.expect(0)
 
 	//comm "sshd" here comes from softirq: the comm rule must not hide it.
-	in := conn{key: 2, local: "192.168.1.10", remote: "203.0.113.7", lport: 22, rport: 40000, old: 3, dir: 1}
+	in := conn{key: 2, local: "192.168.1.10", remote: "203.0.113.7", lport: 22, rport: 40000, old: 3, dir: uint8(event.DirPassive)}
 	h.feed(0, connRec(event.TypeConnOpen, "sshd", in))
 	h.expect(1)
 

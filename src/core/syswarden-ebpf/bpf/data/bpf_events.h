@@ -20,6 +20,13 @@
 #define ATTR_RELIABLE       1
 #define ATTR_UNRELIABLE     2   // softirq / timer context, current is random
 
+/**
+ * conn_event.direction, 0 = unknown so a zeroed field never claims a side.
+ */
+#define DIR_UNKNOWN         0
+#define DIR_ACTIVE          1   // we called connect()
+#define DIR_PASSIVE         2   // accepted from a listener
+
 //-------------------------------
 
 /**
@@ -43,7 +50,7 @@ typedef struct conn_event {
     __u64 sock_key;
     __u16 family, proto, sport, dport;
     __u8  saddr[16], daddr[16];
-    __u8  old_state, new_state, direction; // ACTIVE | PASSIVE
+    __u8  old_state, new_state, direction; // DIR_*
     __u8  _pad[5];
 } conn_event;
 

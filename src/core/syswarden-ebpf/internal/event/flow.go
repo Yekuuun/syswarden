@@ -16,6 +16,7 @@ const (
 const (
 	DirectionOutbound = "outbound"
 	DirectionInbound  = "inbound"
+	DirectionUnknown  = "unknown"
 )
 
 const tcpSynSent = 2
@@ -61,13 +62,17 @@ type Flow struct {
 	LastSeen      string `json:"last_seen,omitempty"`
 }
 
-// ConnFlow builds the flow of a tracepoint event. Direction comes from the
-// kernel, only valid on open and on a close from SYN_SENT.
+// ConnFlow builds the flow of a tracepoint event. Flows are only built on
+// handshake transitions, where the kernel knows the direction.
 func ConnFlow(c *Conn, p Process, outcome string, wall time.Time) Flow {
 	f := newFlow(p, outcome, wall)
-	f.Direction = DirectionInbound
-	if c.Direction == 0 {
+	switch c.Direction {
+	case DirActive:
 		f.Direction = DirectionOutbound
+	case DirPassive:
+		f.Direction = DirectionInbound
+	default:
+		f.Direction = DirectionUnknown
 	}
 	f.Family, f.Proto = familyName(c.Family), protoName(c.Proto)
 	f.Local, f.LocalPort = addrString(c.Family, c.SAddr), c.SPort

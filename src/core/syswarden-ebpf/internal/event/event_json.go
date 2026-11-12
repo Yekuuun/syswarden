@@ -77,10 +77,7 @@ func NewRecord(ev Event, wall time.Time) (Record, error) {
 		rec.DPort = c.DPort
 		rec.OldState = tcpStateName(c.OldState)
 		rec.NewState = tcpStateName(c.NewState)
-		//kernel computes it from oldstate, only true on the open transition.
-		if h.Type == TypeConnOpen {
-			rec.Direction = directionName(c.Direction)
-		}
+		rec.Direction = directionName(c.Direction)
 	case ev.Sock != nil:
 		s := ev.Sock
 		rec.Type = typeName(h.Type)
@@ -191,11 +188,15 @@ func tcpStateName(state uint8) string {
 	return strconv.Itoa(int(state))
 }
 
-func directionName(d uint8) string {
-	if d == 0 {
+// directionName is empty for DirUnknown, so the field is left out.
+func directionName(d Direction) string {
+	switch d {
+	case DirActive:
 		return "active"
+	case DirPassive:
+		return "passive"
 	}
-	return "passive"
+	return ""
 }
 
 func sockKey(key uint64) string {

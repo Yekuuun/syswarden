@@ -8,7 +8,7 @@ import (
 )
 
 func TestFlowGolden(t *testing.T) {
-	open, err := Decode(connV4Record(TypeConnOpen, 2, 1, 0))
+	open, err := Decode(connV4Record(TypeConnOpen, 2, 1, DirActive))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -38,17 +38,20 @@ func TestFlowGolden(t *testing.T) {
 }
 
 func TestFlowDirectionAndFailure(t *testing.T) {
-	passive, _ := Decode(connV4Record(TypeConnOpen, 3, 1, 1))
+	passive, _ := Decode(connV4Record(TypeConnOpen, 3, 1, DirPassive))
 	if f := ConnFlow(passive.Conn, passive.Header.Process(), OutcomeEstablished, wall); f.Direction != DirectionInbound {
 		t.Fatalf("passive open must be inbound, got %s", f.Direction)
 	}
-	failed, _ := Decode(connV4Record(TypeConnClose, 2, 7, 0))
+	failed, _ := Decode(connV4Record(TypeConnClose, 2, 7, DirActive))
 	if !failed.Conn.IsFailedConnect() {
 		t.Fatal("close from SYN_SENT is a failed connect")
 	}
-	closed, _ := Decode(connV4Record(TypeConnClose, 4, 7, 1))
+	closed, _ := Decode(connV4Record(TypeConnClose, 4, 7, DirUnknown))
 	if closed.Conn.IsFailedConnect() {
 		t.Fatal("close from FIN_WAIT1 is not a failed connect")
+	}
+	if f := ConnFlow(closed.Conn, closed.Header.Process(), OutcomeEstablished, wall); f.Direction != DirectionUnknown {
+		t.Fatalf("unknown kernel direction must stay unknown, got %s", f.Direction)
 	}
 }
 

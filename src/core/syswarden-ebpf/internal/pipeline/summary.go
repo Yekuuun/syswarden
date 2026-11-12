@@ -111,10 +111,10 @@ func (s *summarizer) open(ev event.Event, wall time.Time) {
 	pending, hasPending := s.pending.take(c.SockKey)
 	proc := ev.Header.Process()
 
-	if c.Direction == 0 && hasPending {
+	if c.Direction == event.DirActive && hasPending {
 		proc = pending.proc
 	}
-	if c.Direction != 0 {
+	if c.Direction == event.DirPassive {
 		if owner, ok := s.listeners.get(listenKey{c.Proto, c.SPort}); ok {
 			proc = owner
 		}

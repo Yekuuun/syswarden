@@ -23,8 +23,8 @@ func fixture(t testing.TB, name string) []byte {
 
 func TestRecordGolden(t *testing.T) {
 	cases := map[string][]byte{
-		"conn_open_v4.json":   connV4Record(TypeConnOpen, 2, 1, 0),
-		"conn_close_v4.json":  connV4Record(TypeConnClose, 4, 7, 1),
+		"conn_open_v4.json":   connV4Record(TypeConnOpen, 2, 1, DirActive),
+		"conn_close_v4.json":  connV4Record(TypeConnClose, 4, 7, DirUnknown),
 		"lsm_connect_v6.json": sockV6Record(TypeLSMConnect),
 		"lsm_bind_v6.json":    sockV6Record(TypeLSMBind),
 	}
@@ -70,5 +70,27 @@ func TestCommString(t *testing.T) {
 func TestUnknownValuesStayStrings(t *testing.T) {
 	if protoName(250) != "250" || sockTypeName(9) != "9" || tcpStateName(42) != "42" || tcpStateName(0) != "0" {
 		t.Fatal("unknown values must fall back to their decimal string")
+	}
+}
+
+func TestDirectionOnlyWhenKnown(t *testing.T) {
+	cases := map[string]struct {
+		record []byte
+		want   string
+	}{
+		"open active":         {connV4Record(TypeConnOpen, 2, 1, DirActive), "active"},
+		"open passive":        {connV4Record(TypeConnOpen, 3, 1, DirPassive), "passive"},
+		"failed connect":      {connV4Record(TypeConnClose, 2, 7, DirActive), "active"},
+		"close from FIN_WAIT": {connV4Record(TypeConnClose, 4, 7, DirUnknown), ""},
+	}
+	for name, tc := range cases {
+		ev, err := Decode(tc.record)
+		if err != nil {
+			t.Fatal(err)
+		}
+		rec, _ := NewRecord(ev, wall)
+		if rec.Direction != tc.want {
+			t.Fatalf("%s: direction %q, want %q", name, rec.Direction, tc.want)
+		}
 	}
 }
