@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"syswarden-ebpf/internal/event"
+	"syswarden-ebpf/internal/status"
 )
 
 // QueueSize bounds the records waiting between the reader and the writer.
@@ -115,5 +116,20 @@ func newThrottledLog(interval time.Duration, now func() time.Time) throttledLog 
 		}
 		last = t
 		log.Printf("[SYSWARDEN-eBPF] "+format, args...)
+	}
+}
+
+func (st *Stats) snapshot() status.Userspace {
+	return status.Userspace{
+		Received:     st.Received.Load(),
+		Written:      st.Written.Load(),
+		QueueDropped: st.QueueDropped.Load(),
+		DecodeErrors: st.DecodeErrors.Load(),
+		WriteErrors:  st.WriteErrors.Load(),
+		Ignored:      st.Ignored.Load(),
+		Aggregated:   st.Aggregated.Load(),
+		AggOverflow:  st.AggOverflow.Load(),
+		Evicted:      st.Evicted.Load(),
+		Expired:      st.Expired.Load(),
 	}
 }

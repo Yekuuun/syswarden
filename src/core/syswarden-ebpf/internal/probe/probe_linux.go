@@ -108,8 +108,32 @@ func Load(kcfg KernelConfig) (*Probe, error) {
 // Events is the ringbuf map, to open the reader on before Attach.
 func (p *Probe) Events() *ebpf.Map { return p.maps.EbpfOutput }
 
-// DropStats is the per-cpu drop counter map.
-func (p *Probe) DropStats() *ebpf.Map { return p.maps.DropStats }
+// drop_stats indexes, DROP_* in bpf/data/bpf_ringbuf.h.
+const (
+	dropRingbufFull uint32 = 0
+	dropFiltered    uint32 = 1
+)
+
+// KernelDrops sums the per-cpu drop_stats counters.
+func (p *Probe) KernelDrops() (ringbufFull, filtered uint64, err error) {
+	if ringbufFull, err = p.sumPerCPU(dropRingbufFull); err != nil {
+		return 0, 0, err
+	}
+	filtered, err = p.sumPerCPU(dropFiltered)
+	return ringbufFull, filtered, err
+}
+
+func (p *Probe) sumPerCPU(idx uint32) (uint64, error) {
+	var perCPU []uint64
+	if err := p.maps.DropStats.Lookup(idx, &perCPU); err != nil {
+		return 0, fmt.Errorf("read drop_stats[%d]: %w", idx, err)
+	}
+	var sum uint64
+	for _, v := range perCPU {
+		sum += v
+	}
+	return sum, nil
+}
 
 // Attach attaches the tracepoint, then the LSM hooks when loaded. Any failure
 // detaches what was already attached.

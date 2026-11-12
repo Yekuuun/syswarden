@@ -17,11 +17,16 @@ import (
 	"syswarden-ebpf/internal/config"
 	"syswarden-ebpf/internal/jsonlog"
 	"syswarden-ebpf/internal/probe"
+	"syswarden-ebpf/internal/status"
 )
 
 // Run loads, attaches and streams events until ctx is done, then stops in
-// order: detach, drain the ringbuf, drain the queue, close files.
-func Run(ctx context.Context, cfg config.Config, st *Stats) error {
+// order: detach, drain the ringbuf, drain the queue, close files. The status
+// file follows every phase, a failed start included.
+func Run(ctx context.Context, cfg config.Config, st *Stats, statusPath string) (err error) {
+	pub := newPublisher(statusPath, cfg, st)
+	defer func() { pub.publish(status.StateStopped, err) }()
+
 	out, err := jsonlog.Open(jsonlog.Options{Path: cfg.Output.Path, MaxBytes: cfg.Output.MaxBytes, Generations: cfg.Output.Generations})
 	if err != nil {
 		return err
@@ -64,12 +69,16 @@ func Run(ctx context.Context, cfg config.Config, st *Stats) error {
 	var runErr error
 	if runErr = p.Attach(); runErr == nil {
 		logStatus(p.Status(), cfg)
+		pub.attach(p)
+		stopPublishing := pub.every(status.Interval)
+
 		select {
 		case <-ctx.Done():
 			log.Println("[SYSWARDEN-eBPF] Shutting down gracefully...")
 		case runErr = <-pumpErr:
 			log.Printf("[SYSWARDEN-eBPF] Reader stopped, shutting down: %v", runErr)
 		}
+		stopPublishing()
 	}
 
 	//stop new events first, then hand out what is left in the ringbuf.
@@ -79,6 +88,7 @@ func Run(ctx context.Context, cfg config.Config, st *Stats) error {
 		_ = rd.Close()
 	}
 	wg.Wait()
+	pub.detach() //last kernel counters, maps are closed after this
 
 	return errors.Join(runErr, detachErr)
 }
