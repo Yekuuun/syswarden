@@ -23,7 +23,8 @@ struct {
  * drop_stats index.
  */
 #define DROP_RINGBUF_FULL   0
-#define DROP_STATS_MAX      1
+#define DROP_FILTERED       1   // dropped on purpose by ebpf_config
+#define DROP_STATS_MAX      2
 
 /**
  * Lost events counters, read by userspace (bpf_ringbuf_reserve fails silently).
@@ -34,5 +35,27 @@ struct {
     __type(key, __u32);
     __type(value, __u64);
 } drop_stats SEC(".maps");
+
+/**
+ * ebpf_config_val.flags.
+ */
+#define CFG_IGNORE_LOOPBACK (1 << 0)
+
+/**
+ * Runtime filters, written by userspace before attach. Zeroed = no filtering.
+ */
+typedef struct ebpf_config_val {
+    __u32 flags;            // CFG_*
+    __u32 self_tgid;        // syswarden-ebpf own tgid, 0 = disabled
+} ebpf_config_val;
+
+_Static_assert(sizeof(ebpf_config_val) == 8, "ebpf_config_val layout");
+
+struct {
+    __uint(type, BPF_MAP_TYPE_ARRAY);
+    __uint(max_entries, 1);
+    __type(key, __u32);
+    __type(value, ebpf_config_val);
+} ebpf_config SEC(".maps");
 
 #endif

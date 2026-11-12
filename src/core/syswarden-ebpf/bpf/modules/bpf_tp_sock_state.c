@@ -51,6 +51,11 @@ int sock_handle_set_state(struct inet_sock_set_state *ctx)
         return 0;
     }
 
+    const __u8 *daddr = (ctx->family == AF_INET_) ? ctx->daddr : ctx->daddr_v6;
+
+    if (is_filtered(ctx->family, daddr, 0) == 1)
+        return 0;
+
     ebpf_event *event = reserve_event();
     if(!event)
         return 0;
