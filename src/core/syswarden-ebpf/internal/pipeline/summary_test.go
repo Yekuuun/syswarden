@@ -247,7 +247,9 @@ func TestPendingConnectExpires(t *testing.T) {
 
 func TestWriteSummaryFlushesOnTickAndOnClose(t *testing.T) {
 	h := newHarness(t)
-	queue := make(chan []byte, 8)
+	//unbuffered: each send waits for the previous record to be handled, so
+	//the tick lands exactly between the second and the third record.
+	queue := make(chan []byte)
 	tick := make(chan time.Time)
 	done := make(chan struct{})
 	go func() {
