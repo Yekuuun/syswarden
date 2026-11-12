@@ -7,4 +7,4 @@ require (
 	github.com/pelletier/go-toml/v2 v2.4.3
 )
 
-require golang.org/x/sys v0.49.0 // indirect
+require golang.org/x/sys v0.49.0

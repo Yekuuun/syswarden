@@ -143,6 +143,10 @@ func (p *Probe) Attach() error {
 // Status returns what is currently attached.
 func (p *Probe) Status() Status { return p.status }
 
+// Detach stops new events while keeping the maps open, so the ringbuf can
+// still be drained before Close.
+func (p *Probe) Detach() error { return p.detach() }
+
 // Close detaches every link, then releases programs and maps.
 func (p *Probe) Close() error {
 	errs := []error{p.detach()}
