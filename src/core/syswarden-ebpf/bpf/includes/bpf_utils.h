@@ -4,6 +4,7 @@
 #include "bpf_config.h"
 #include "bpf_common.h"
 #include "../data/bpf_events.h"
+#include "../data/bpf_ringbuf.h"
 
 /**
  * Utility function for cleaning memory structs
@@ -36,24 +37,56 @@ static __always_inline current_ctx_infos get_current_ctx_infos()
 }
 
 /**
+ * Increment a drop_stats counter.
+ *
+ * @idx => DROP_*.
+ */
+static __always_inline void inc_drop_stat(__u32 idx)
+{
+    __u64 *count = bpf_map_lookup_elem(&drop_stats, &idx);
+    if (!count)
+        return;
+
+    //per-cpu value, no atomic needed.
+    *count += 1;
+}
+
+/**
+ * Reserve a zeroed event on the ringbuf, counts the drop on failure.
+ *
+ * @note => zeroed so padding never leaks kernel bytes to userspace.
+ */
+static __always_inline ebpf_event *reserve_event(void)
+{
+    ebpf_event *event = bpf_ringbuf_reserve(&ebpf_output, sizeof(ebpf_event), 0);
+    if (!event) {
+        inc_drop_stat(DROP_RINGBUF_FULL);
+        return NULL;
+    }
+
+    __rtl_secure_zero_memory(event, sizeof(ebpf_event));
+    return event;
+}
+
+/**
  * Fill the event header with the current task infos.
  *
- * @event => reserved ringbuf record.
- * @type  => EVENT_*.
+ * @event       => zeroed record from reserve_event.
+ * @type        => EVENT_*.
+ * @attribution => ATTR_*.
  */
-static __always_inline void fill_event_hdr(ebpf_event *event, __u16 type)
+static __always_inline void fill_event_hdr(ebpf_event *event, __u16 type, __u8 attribution)
 {
     current_ctx_infos caller = get_current_ctx_infos();
 
-    __rtl_secure_zero_memory(&event->hdr, sizeof(event->hdr));
-
-    event->hdr.schema_version = 1;
+    event->hdr.schema_version = EVENT_SCHEMA_VERSION;
     event->hdr.type           = type;
     event->hdr.size           = sizeof(ebpf_event);
     event->hdr.ts_ns          = bpf_ktime_get_ns();
     event->hdr.pid            = caller.pid;
     event->hdr.tgid           = caller.tgid;
     event->hdr.uid            = caller.uid;
+    event->hdr.attribution    = attribution;
 
     __builtin_memcpy(event->hdr.comm, caller.comm, sizeof(event->hdr.comm));
 }

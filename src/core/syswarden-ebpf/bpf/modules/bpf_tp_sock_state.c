@@ -51,15 +51,15 @@ int sock_handle_set_state(struct inet_sock_set_state *ctx)
         return 0;
     }
 
-    ebpf_event *event = bpf_ringbuf_reserve(&ebpf_output, sizeof(ebpf_event), 0);
+    ebpf_event *event = reserve_event();
     if(!event)
         return 0;
 
-    fill_event_hdr(event, event_type);
+    //transitions mostly run in softirq, pid / comm may belong to any task.
+    fill_event_hdr(event, event_type, ATTR_UNRELIABLE);
 
     //main payload.
     conn_event *conn = &event->payload.conn_event;
-    __rtl_secure_zero_memory(conn, sizeof(conn_event));
 
     conn->sock_key  = (__u64)ctx->skaddr;
     conn->family    = ctx->family;

@@ -41,14 +41,14 @@ int BPF_PROG(lsm_socket_bind, struct socket *sock, struct sockaddr *addr, int ad
     if (read_sockaddr(addr, addrlen, &family, &sport, saddr) < 0)
         return 0;
 
-    ebpf_event *event = bpf_ringbuf_reserve(&ebpf_output, sizeof(ebpf_event), 0);
+    ebpf_event *event = reserve_event();
     if (!event)
         return 0;
 
-    fill_event_hdr(event, EVENT_LSM_BIND);
+    //syscall context, current is the caller.
+    fill_event_hdr(event, EVENT_LSM_BIND, ATTR_RELIABLE);
 
     sock_event *sev = &event->payload.sock_event;
-    __rtl_secure_zero_memory(sev, sizeof(sock_event));
 
     sev->sock_key = (__u64)sk;
     sev->family   = family;
