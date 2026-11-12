@@ -7,8 +7,10 @@
 /**
  * Global event types.
  */
-#define EVENT_CONN_OPEN  1
-#define EVENT_CONN_CLOSE 2
+#define EVENT_CONN_OPEN     1
+#define EVENT_CONN_CLOSE    2
+#define EVENT_LSM_CONNECT   3
+#define EVENT_LSM_BIND      4
 
 //-------------------------------
 
@@ -36,6 +38,14 @@ typedef struct conn_event {
     __u8  _pad[1];
 } conn_event;
 
+typedef struct sock_event {
+    __u64 sock_key;
+    __u16 family, proto, type;
+    __u16 sport, dport;
+    __u8  saddr[16], daddr[16];
+    __u8  _pad[6];
+} sock_event;
+
 /**
  * Main payload send on the ringbuffer.
  */
@@ -44,6 +54,7 @@ typedef struct ebpf_event {
 
     union {
         conn_event conn_event;
+        sock_event sock_event;
     } payload;
 
 } ebpf_event;

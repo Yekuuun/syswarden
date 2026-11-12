@@ -14,12 +14,6 @@
 #define IPPROTO_TCP_ 6
 
 /**
- * AF_INET/AF_INET6 are plain UAPI macros
- */
-#define AF_INET_  2
-#define AF_INET6_ 10
-
-/**
  * handle inet_sock_set_state function
  *
  * @param ctx => inet_sock_set_state struct (view bpf_structs)
@@ -61,19 +55,9 @@ int sock_handle_set_state(struct inet_sock_set_state *ctx)
     if(!event)
         return 0;
 
-    current_ctx_infos caller = get_current_ctx_infos();
+    fill_event_hdr(event, event_type);
 
-    event->hdr.schema_version = 1;
-    event->hdr.type           = event_type;
-    event->hdr.size           = sizeof(ebpf_event);
-    event->hdr.ts_ns          = bpf_ktime_get_ns();
-    event->hdr.pid            = caller.pid;
-    event->hdr.tgid           = caller.tgid;
-    event->hdr.uid            = caller.uid;
-
-    __rtl_secure_zero_memory(event->hdr.comm, sizeof(event->hdr.comm));
-    __builtin_memcpy(event->hdr.comm, caller.comm, sizeof(event->hdr.comm));
-
+    //main payload.
     conn_event *conn = &event->payload.conn_event;
     __rtl_secure_zero_memory(conn, sizeof(conn_event));
 
@@ -91,7 +75,8 @@ int sock_handle_set_state(struct inet_sock_set_state *ctx)
         __builtin_memcpy(conn->saddr, ctx->saddr, sizeof(ctx->saddr));
         __builtin_memcpy(conn->daddr, ctx->daddr, sizeof(ctx->daddr));
     }
-    else if(ctx->family == AF_INET6_) {
+    
+    if(ctx->family == AF_INET6_) {
         __builtin_memcpy(conn->saddr, ctx->saddr_v6, sizeof(ctx->saddr_v6));
         __builtin_memcpy(conn->daddr, ctx->daddr_v6, sizeof(ctx->daddr_v6));
     }
