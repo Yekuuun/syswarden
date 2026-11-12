@@ -76,8 +76,9 @@ func runCommand(args []string) int {
 
 	var stats pipeline.Stats
 	err = pipeline.Run(ctx, cfg, &stats)
-	log.Printf("[SYSWARDEN-eBPF] Stopped: received=%d written=%d queue_dropped=%d decode_errors=%d write_errors=%d",
-		stats.Received.Load(), stats.Written.Load(), stats.QueueDropped.Load(), stats.DecodeErrors.Load(), stats.WriteErrors.Load())
+	log.Printf("[SYSWARDEN-eBPF] Stopped: received=%d written=%d queue_dropped=%d decode_errors=%d write_errors=%d ignored=%d aggregated=%d evicted=%d expired=%d",
+		stats.Received.Load(), stats.Written.Load(), stats.QueueDropped.Load(), stats.DecodeErrors.Load(), stats.WriteErrors.Load(),
+		stats.Ignored.Load(), stats.Aggregated.Load(), stats.Evicted.Load(), stats.Expired.Load())
 	if err != nil {
 		log.Printf("[SYSWARDEN-eBPF] %v", err)
 		return 1

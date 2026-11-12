@@ -158,3 +158,36 @@ func ExampleParse() {
 	fmt.Println(err)
 	// Output: invalid ebpf configuration: ignore[0]: needs dst, or comm with dport (port or comm alone is refused)
 }
+
+func TestIgnoreRuleMatches(t *testing.T) {
+	prefix, addr := netip.MustParsePrefix, netip.MustParseAddr
+	resolver := IgnoreRule{Comm: "systemd-resolve", DPort: 53, Proto: "udp"}
+	peer := IgnoreRule{Dst: prefix("10.0.0.12/32"), DPort: 62026}
+
+	cases := []struct {
+		name   string
+		rule   IgnoreRule
+		target Target
+		want   bool
+	}{
+		{"comm port proto", resolver, Target{Comm: "systemd-resolve", CommReliable: true, Remote: addr("1.1.1.1"), ServicePort: 53, Proto: "udp"}, true},
+		{"unreliable comm", resolver, Target{Comm: "systemd-resolve", Remote: addr("1.1.1.1"), ServicePort: 53, Proto: "udp"}, false},
+		{"other comm", resolver, Target{Comm: "curl", CommReliable: true, ServicePort: 53, Proto: "udp"}, false},
+		{"other proto", resolver, Target{Comm: "systemd-resolve", CommReliable: true, ServicePort: 53, Proto: "tcp"}, false},
+		{"peer any comm", peer, Target{Comm: "x", Remote: addr("10.0.0.12"), ServicePort: 62026, Proto: "tcp"}, true},
+		{"peer other host", peer, Target{Remote: addr("10.0.0.13"), ServicePort: 62026, Proto: "tcp"}, false},
+		{"peer other port", peer, Target{Remote: addr("10.0.0.12"), ServicePort: 22, Proto: "tcp"}, false},
+		{"v4 rule v6 addr", peer, Target{Remote: addr("2001:db8::1"), ServicePort: 62026}, false},
+	}
+	for _, tc := range cases {
+		if got := tc.rule.Matches(tc.target); got != tc.want {
+			t.Fatalf("%s: got %v, want %v", tc.name, got, tc.want)
+		}
+	}
+
+	cfg := Defaults()
+	cfg.Ignore = []IgnoreRule{resolver, peer}
+	if !cfg.Ignored(Target{Remote: addr("10.0.0.12"), ServicePort: 62026}) || cfg.Ignored(Target{Remote: addr("10.0.0.12")}) {
+		t.Fatal("Ignored must match any rule and only those")
+	}
+}

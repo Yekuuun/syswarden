@@ -21,7 +21,7 @@ type Record struct {
 	UID           uint32 `json:"uid"`
 	Comm          string `json:"comm"`
 	Attribution   string `json:"attribution"`
-	SockKey       string `json:"sock_key"`
+	SockKey       string `json:"sock_key,omitempty"`
 	Family        string `json:"family"`
 	Proto         string `json:"proto"`
 	SockType      string `json:"sock_type,omitempty"`
@@ -32,6 +32,21 @@ type Record struct {
 	OldState      string `json:"old_state,omitempty"`
 	NewState      string `json:"new_state,omitempty"`
 	Direction     string `json:"direction,omitempty"`
+	Count         uint64 `json:"count,omitempty"`
+	FirstSeen     string `json:"first_seen,omitempty"`
+	LastSeen      string `json:"last_seen,omitempty"`
+}
+
+// Repeat turns a record into its end of window summary (summary mode),
+// type suffixed by "_repeat", count including the first occurrence.
+func (r Record) Repeat(count uint64, first, last, wall time.Time) Record {
+	r.Type += "_repeat"
+	r.Timestamp = wall.UTC().Format(time.RFC3339Nano)
+	r.SockKey = ""
+	r.Count = count
+	r.FirstSeen = first.UTC().Format(time.RFC3339Nano)
+	r.LastSeen = last.UTC().Format(time.RFC3339Nano)
+	return r
 }
 
 // NewRecord builds the JSON view of ev. wall is the wall clock time of the event,
@@ -88,11 +103,13 @@ func NewRecord(ev Event, wall time.Time) (Record, error) {
 }
 
 // Encode returns rec as one JSON line, newline included.
-func Encode(rec Record) ([]byte, error) {
+func Encode(rec Record) ([]byte, error) { return encodeLine(rec) }
+
+func encodeLine(v any) ([]byte, error) {
 	var buf bytes.Buffer
 	enc := json.NewEncoder(&buf)
 	enc.SetEscapeHTML(false)
-	if err := enc.Encode(rec); err != nil {
+	if err := enc.Encode(v); err != nil {
 		return nil, err
 	}
 	return buf.Bytes(), nil

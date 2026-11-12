@@ -22,10 +22,6 @@ import (
 // Run loads, attaches and streams events until ctx is done, then stops in
 // order: detach, drain the ringbuf, drain the queue, close files.
 func Run(ctx context.Context, cfg config.Config, st *Stats) error {
-	if cfg.Mode != config.ModeFull {
-		return fmt.Errorf("mode %q is not available yet, run with --mode full", cfg.Mode)
-	}
-
 	out, err := jsonlog.Open(jsonlog.Options{Path: cfg.Output.Path, MaxBytes: cfg.Output.MaxBytes, Generations: cfg.Output.Generations})
 	if err != nil {
 		return err
@@ -55,7 +51,14 @@ func Run(ctx context.Context, cfg config.Config, st *Stats) error {
 	go func() { defer wg.Done(); pumpErr <- pump(ringbufSource{rd}, queue, st) }()
 	go func() {
 		defer wg.Done()
-		writeFull(queue, out, monotonicToWall, st, newThrottledLog(10*time.Second, time.Now))
+		logf := newThrottledLog(10*time.Second, time.Now)
+		if cfg.Mode == config.ModeFull {
+			writeFull(queue, out, monotonicToWall, st, logf)
+			return
+		}
+		ticker := time.NewTicker(time.Duration(cfg.Summary.WindowSeconds) * time.Second)
+		defer ticker.Stop()
+		writeSummary(queue, newSummarizer(cfg, out, st, logf), monotonicToWall, ticker.C, time.Now)
 	}()
 
 	var runErr error

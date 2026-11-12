@@ -18,7 +18,12 @@ ignore_loopback = true
 [summary]
 window_seconds = 60
 
-# Connections dropped in userspace, still counted in `syswarden-ebpf status`.
+# Connections dropped in userspace (summary mode), still counted in
+# `syswarden-ebpf status`. Every field set must match:
+#   comm  process name, only matched when attributed reliably
+#   dst   remote address prefix
+#   dport service port: remote port when outbound, local port when inbound
+#   proto tcp or udp
 # A rule needs dst, or comm with dport. A port alone, a comm alone and the
 # cloud metadata ranges (169.254.0.0/16, fd00:ec2::254) are refused.
 #

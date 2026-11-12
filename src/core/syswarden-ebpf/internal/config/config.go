@@ -189,3 +189,36 @@ func (r IgnoreRule) validate() error {
 func notCommRune(r rune) bool {
 	return r > unicode.MaxASCII || !unicode.IsPrint(r)
 }
+
+// Target is what an ignore rule is matched against.
+type Target struct {
+	Comm         string
+	CommReliable bool       // a comm seen in softirq is random, never matched
+	Remote       netip.Addr // unmapped
+	ServicePort  uint16     // remote port when outbound, local port when inbound
+	Proto        string     // "tcp", "udp", ...
+}
+
+// Matches tells if every field set in r matches t.
+func (r IgnoreRule) Matches(t Target) bool {
+	if r.Comm != "" && (!t.CommReliable || r.Comm != t.Comm) {
+		return false
+	}
+	if r.Dst.IsValid() && !r.Dst.Contains(t.Remote) {
+		return false
+	}
+	if r.DPort != 0 && r.DPort != t.ServicePort {
+		return false
+	}
+	return r.Proto == "" || r.Proto == t.Proto
+}
+
+// Ignored tells if any rule of c matches t.
+func (c Config) Ignored(t Target) bool {
+	for _, r := range c.Ignore {
+		if r.Matches(t) {
+			return true
+		}
+	}
+	return false
+}

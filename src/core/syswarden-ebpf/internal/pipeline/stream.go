@@ -26,6 +26,13 @@ type Stats struct {
 	DecodeErrors atomic.Uint64
 	WriteErrors  atomic.Uint64
 	Written      atomic.Uint64 // lines written to ebpf.json
+
+	//summary mode only.
+	Ignored     atomic.Uint64 // flows matching an ignore rule
+	Aggregated  atomic.Uint64 // repeats folded into a *_repeat line
+	AggOverflow atomic.Uint64 // lines written untracked, too many keys in the window
+	Evicted     atomic.Uint64 // pending connects or listeners pushed out by newer ones
+	Expired     atomic.Uint64 // pending connects without handshake after pendingTTL
 }
 
 // source yields raw ringbuf records until errStop.
