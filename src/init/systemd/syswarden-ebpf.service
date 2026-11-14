@@ -1,0 +1,58 @@
+[Unit]
+Description=SYSWARDEN eBPF Connection Observer (observation only)
+# Independent from the core: each one runs without the other.
+After=network.target syswarden-core.service
+
+[Service]
+Type=simple
+User=root
+ExecStart=/opt/syswarden/bin/syswarden-ebpf run
+Restart=on-failure
+RestartSec=5s
+# SIGTERM detaches, then flushes the ringbuf and the queue before exit.
+TimeoutStopSec=20s
+
+# Load and attach BPF programs (kernel >= 5.8). LimitMEMLOCK covers kernels
+# before 5.11, where BPF memory is charged to RLIMIT_MEMLOCK.
+CapabilityBoundingSet=CAP_BPF CAP_PERFMON
+LimitMEMLOCK=infinity
+
+# BPF hooks are global to the host: the service itself needs no network.
+PrivateNetwork=yes
+RestrictAddressFamilies=AF_UNIX
+IPAddressDeny=any
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+PrivateTmp=true
+RestrictRealtime=yes
+RestrictNamespaces=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+UMask=0077
+PrivateDevices=yes
+ProtectProc=invisible
+ProcSubset=pid
+KeyringMode=private
+# The binary never executes anything else.
+NoExecPaths=/
+ExecPaths=/opt/syswarden/bin/syswarden-ebpf
+# bpf() is in @privileged and perf_event_open() in @debug, both needed to load
+# and attach. EPERM instead of SIGSYS so a missing syscall is logged.
+SystemCallFilter=@system-service bpf perf_event_open
+SystemCallFilter=~@chown @keyring @setuid
+SystemCallErrorNumber=EPERM
+# PrivateUsers= is left out: BPF needs CAP_BPF in the initial user namespace.
+# Event log, and /run for the status file (written as /run/syswarden-ebpf-status.json).
+ReadWritePaths=/var/log/syswarden /run
+
+[Install]
+WantedBy=multi-user.target

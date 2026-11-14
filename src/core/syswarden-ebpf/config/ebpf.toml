@@ -1,0 +1,37 @@
+# syswarden-ebpf configuration. Observation only: nothing here blocks traffic,
+# ip / nftables stay the decision makers. Restart the service to apply.
+schema_version = 1
+
+# summary: one line per connection, repeats aggregated per window.
+# full: every kernel event as is, for debugging (high volume).
+mode = "summary"
+
+[output]
+path = "/var/log/syswarden/ebpf.json"
+max_bytes = 16777216   # per file
+generations = 3        # rotated files kept: ebpf.json.1 .. ebpf.json.3
+
+[filter]
+# Dropped in kernel before the ringbuf. bind() on loopback is still reported.
+ignore_loopback = true
+
+[summary]
+window_seconds = 60
+
+# Connections dropped in userspace (summary mode), still counted in
+# `syswarden-ebpf status`. Every field set must match:
+#   comm  process name, only matched when attributed reliably
+#   dst   remote address prefix
+#   dport service port: remote port when outbound, local port when inbound
+#   proto tcp or udp
+# A rule needs dst, or comm with dport. A port alone, a comm alone and the
+# cloud metadata ranges (169.254.0.0/16, fd00:ec2::254) are refused.
+#
+# [[ignore]]
+# comm = "systemd-resolve"
+# dport = 53
+# proto = "udp"
+#
+# [[ignore]]
+# dst = "10.0.0.12/32"   # HA peer
+# dport = 62026

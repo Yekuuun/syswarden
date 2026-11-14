@@ -41,6 +41,9 @@ int BPF_PROG(lsm_socket_connect, struct socket *sock, struct sockaddr *addr, int
     if (read_sockaddr(addr, addrlen, &family, &dport, daddr) < 0)
         return 0;
 
+    if (is_filtered(family, daddr, 1) == 1)
+        return 0;
+
     ebpf_event *event = reserve_event();
     if (!event)
         return 0;

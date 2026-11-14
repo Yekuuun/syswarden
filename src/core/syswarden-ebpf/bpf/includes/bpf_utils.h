@@ -69,6 +69,66 @@ static __always_inline ebpf_event *reserve_event(void)
 }
 
 /**
+ * Check if an address is loopback (127.0.0.0/8, ::1, ::ffff:127.0.0.0/104).
+ *
+ * @ip => 4 bytes for AF_INET_, 16 for AF_INET6_, network byte order.
+ */
+static __always_inline int is_loopback(__u16 family, const __u8 *ip)
+{
+    if (family == AF_INET_)
+        return ip[0] == 127;
+
+    if (family != AF_INET6_)
+        return 0;
+
+    __u64 hi  = 0;
+    __u32 mid = 0;
+    __u32 lo  = 0;
+
+    __builtin_memcpy(&hi, ip, 8);
+    __builtin_memcpy(&mid, ip + 8, 4);
+    __builtin_memcpy(&lo, ip + 12, 4);
+
+    if (hi != 0)
+        return 0;
+
+    if (mid == 0 && lo == bpf_htonl(1))
+        return 1;
+
+    //v4-mapped.
+    return mid == bpf_htonl(0x0000ffff) && ip[12] == 127;
+}
+
+/**
+ * Apply ebpf_config filters, counts the event in DROP_FILTERED when filtered.
+ *
+ * @ip         => remote addr, same layout as is_loopback.
+ * @check_self => only in syscall context, current is random in softirq.
+ */
+static __always_inline int is_filtered(__u16 family, const __u8 *ip, int check_self)
+{
+    __u32 key = 0;
+
+    ebpf_config_val *cfg = bpf_map_lookup_elem(&ebpf_config, &key);
+    if (!cfg)
+        return 0;
+
+    __u32 tgid = bpf_get_current_pid_tgid() >> 32;
+
+    if (check_self == 1 && cfg->self_tgid != 0 && tgid == cfg->self_tgid) {
+        inc_drop_stat(DROP_FILTERED);
+        return 1;
+    }
+
+    if ((cfg->flags & CFG_IGNORE_LOOPBACK) != 0 && is_loopback(family, ip) == 1) {
+        inc_drop_stat(DROP_FILTERED);
+        return 1;
+    }
+
+    return 0;
+}
+
+/**
  * Fill the event header with the current task infos.
  *
  * @event       => zeroed record from reserve_event.
