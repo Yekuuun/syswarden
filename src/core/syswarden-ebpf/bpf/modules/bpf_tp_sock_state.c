@@ -75,10 +75,13 @@ int sock_handle_set_state(struct inet_sock_set_state *ctx)
     conn->new_state = (__u8)ctx->newstate;
 
     //only handshake states tell the side, other closes stay DIR_UNKNOWN.
-    if (ctx->oldstate == TCP_SYN_SENT)
+    if (ctx->oldstate == TCP_SYN_SENT) {
         conn->direction = DIR_ACTIVE;
-    else if (ctx->oldstate == TCP_SYN_RECV)
+    }
+
+    if (ctx->oldstate == TCP_SYN_RECV) {
         conn->direction = DIR_PASSIVE;
+    }
 
     if(ctx->family == AF_INET_) {
         __builtin_memcpy(conn->saddr, ctx->saddr, sizeof(ctx->saddr));
